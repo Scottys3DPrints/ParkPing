@@ -77,9 +77,6 @@ jobs:
       # so the build always reflects the current config rather than a stale copy.
       - name: Generate native project
         working-directory: apps/mobile
-        env:
-          # Falls back to the LAN address in app.json, which only works at home.
-          EXPO_PUBLIC_API_URL: ${{ vars.API_URL }}
         run: npx expo prebuild --platform android --no-install
 
       # Signing is optional so the build never hard-fails, but it is the difference
@@ -103,6 +100,10 @@ jobs:
       - name: Build release APK
         working-directory: apps/mobile/android
         env:
+          # This is the step that bundles the JavaScript, so this is where the
+          # API URL has to be set — on prebuild it would be silently ignored,
+          # and the app would fall back to the LAN address in app.json.
+          EXPO_PUBLIC_API_URL: ${{ vars.API_URL }}
           PARKPING_KEYSTORE: ${{ steps.signing.outputs.available == 'true' && format('{0}/parkping.jks', runner.temp) || '' }}
           PARKPING_KEYSTORE_PASSWORD: ${{ secrets.PARKPING_KEYSTORE_PASSWORD }}
           PARKPING_KEY_ALIAS: ${{ secrets.PARKPING_KEY_ALIAS }}

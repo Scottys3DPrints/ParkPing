@@ -21,11 +21,23 @@ const TOKEN_KEY = 'parkping.tokens';
  *
  * Note that `localhost` on a phone means *the phone*, not your computer — for a
  * device on your Wi-Fi this has to be the machine's LAN address.
+ *
+ * Blank values are treated as absent, not as an answer. An unset GitHub
+ * Actions variable expands to an empty string rather than disappearing, and
+ * `??` would happily accept that empty string and leave every request pointed
+ * at nowhere.
  */
-export const API_URL: string =
-  process.env.EXPO_PUBLIC_API_URL ??
-  (Constants.expoConfig?.extra?.apiUrl as string | undefined) ??
-  'http://localhost:4000';
+function firstConfigured(...candidates: Array<string | undefined>): string {
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string' && candidate.trim() !== '') return candidate.trim();
+  }
+  return 'http://localhost:4000';
+}
+
+export const API_URL: string = firstConfigured(
+  process.env.EXPO_PUBLIC_API_URL,
+  Constants.expoConfig?.extra?.apiUrl as string | undefined,
+);
 
 export interface Tokens {
   accessToken: string;
