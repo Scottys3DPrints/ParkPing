@@ -61,6 +61,27 @@ export interface Config {
     expoAccessToken: string | null;
   };
 
+  /**
+   * Outbound message channels. Every one is optional: outside production an
+   * unconfigured transport is replaced by a demo transport that records what
+   * would have been sent, so the product can be demonstrated end to end
+   * without a Meta business account or a Twilio subscription.
+   */
+  channels: {
+    whatsappPhoneNumberId: string | null;
+    whatsappAccessToken: string | null;
+    whatsappTemplateName: string;
+    whatsappTemplateLocale: string;
+    twilioAccountSid: string | null;
+    twilioAuthToken: string | null;
+    twilioFromNumber: string | null;
+    emailApiKey: string | null;
+    emailFromAddress: string;
+  };
+
+  /** Public URL of the web app, used in notification links and QR codes. */
+  webUrl: string;
+
   /** Version string users accept at sign-up; bump to force re-consent. */
   consentVersion: string;
 }
@@ -173,7 +194,8 @@ export function loadConfig(): Config {
     env,
     port: intFromEnv('PORT', 4000),
     publicUrl: envOrNull('PUBLIC_URL') ?? `http://localhost:${intFromEnv('PORT', 4000)}`,
-    corsOrigins: (envOrNull('CORS_ORIGINS') ?? 'http://localhost:5173,http://localhost:8081')
+    corsOrigins: (envOrNull('CORS_ORIGINS') ??
+      'http://localhost:5173,http://localhost:5174,http://localhost:8081')
       .split(',')
       .map((o) => o.trim())
       .filter(Boolean),
@@ -209,6 +231,20 @@ export function loadConfig(): Config {
       provider: (envOrNull('PUSH_PROVIDER') as Config['push']['provider'] | null) ?? 'console',
       expoAccessToken: envOrNull('EXPO_ACCESS_TOKEN'),
     },
+
+    channels: {
+      whatsappPhoneNumberId: envOrNull('WHATSAPP_PHONE_NUMBER_ID'),
+      whatsappAccessToken: envOrNull('WHATSAPP_ACCESS_TOKEN'),
+      whatsappTemplateName: envOrNull('WHATSAPP_TEMPLATE_NAME') ?? 'parkping_alert',
+      whatsappTemplateLocale: envOrNull('WHATSAPP_TEMPLATE_LOCALE') ?? 'de',
+      twilioAccountSid: envOrNull('TWILIO_ACCOUNT_SID'),
+      twilioAuthToken: envOrNull('TWILIO_AUTH_TOKEN'),
+      twilioFromNumber: envOrNull('TWILIO_FROM_NUMBER'),
+      emailApiKey: envOrNull('EMAIL_API_KEY'),
+      emailFromAddress: envOrNull('EMAIL_FROM_ADDRESS') ?? 'ParkPing <noreply@parkping.test>',
+    },
+
+    webUrl: envOrNull('WEB_URL') ?? 'http://localhost:5174',
 
     consentVersion: envOrNull('CONSENT_VERSION') ?? '2026-08-30',
   };

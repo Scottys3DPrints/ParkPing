@@ -71,6 +71,24 @@ export function authRoutes(): Router {
     }),
   );
 
+  /**
+   * Starts an anonymous reporter session (project document v0.2 §3.3).
+   *
+   * Granted freely because it grants almost nothing: a guest may alert a
+   * sticker and read their own sent alerts. It exists so that someone standing
+   * in front of a blocked driveway never sees a sign-up form.
+   */
+  router.post(
+    '/guest',
+    asyncHandler(async (req, res) => {
+      const session = await req.ctx.auth.createGuestSession(req.ipHash);
+      res.status(201).json({ guest: { id: session.guestId }, tokens: {
+        accessToken: session.accessToken,
+        expiresIn: session.expiresIn,
+      } });
+    }),
+  );
+
   router.get(
     '/me',
     requireAuth(),

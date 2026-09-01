@@ -11,33 +11,38 @@ This repository implements the MVP scope from `ParkPing_Projekt_Dokument.docx`
 
 ## Quick start
 
-No database to install, no accounts to create.
+No database to install, no credentials to configure, one command.
 
 ```bash
-npm install
+npm ci && npm run demo
 ```
 
-```bash
-npm run seed --workspace @parkping/api
-```
+That seeds a pilot and starts everything:
 
-```bash
-npm run dev
-```
+| | |
+| --- | --- |
+| **Reporter & owner app** | http://localhost:5174 |
+| **Demo console** | http://localhost:5174/demo |
+| Admin console | http://localhost:5173 |
+| API | http://localhost:4000 |
 
-The API is on `http://localhost:4000`. In a second terminal:
+Use `npm ci` rather than `npm install` — npm's optional-dependency resolution
+intermittently drops esbuild's platform binary on Windows, and the lockfile
+install is deterministic.
 
-```bash
-npm run dev:admin
-```
+### The 60-second walkthrough
 
-The admin console is on `http://localhost:5173`. Sign in as
-`admin@parkping.test` — in development the sign-in code is returned in the API
-response and shown on screen, so no email provider is needed.
+1. Open **http://localhost:5174/s/PARKPNG001** — this is what a stranger sees
+   after scanning a windscreen sticker. No account, no install.
+2. Pick a reason, send. You get a reference and nothing else.
+3. Open **/demo** and read the WhatsApp message the driver actually received.
+4. Sign in as `anna@nordpark.test` (the six-digit code appears on screen),
+   open **My vehicles**, and reply.
+5. Go back to **My reports** — the reply is there. Nothing about either person
+   ever crossed over.
 
-The seed creates a pilot site (Nordpark Campus) with three registered vehicles,
-an invite code (`NORDPARK1`), and 30 days of alerts so the dashboard has
-something real to show.
+Try **/s/PARKPNG004** too: a sticker nobody has claimed, which is the other
+half of the story.
 
 | Demo account | Role |
 | --- | --- |
@@ -45,15 +50,20 @@ something real to show.
 | `facility@nordpark.test` | Site operator (organization owner) |
 | `anna@`, `ben@`, `clara@nordpark.test` | Vehicle users |
 
-For the mobile app:
+Stickers: `PARKPNG001`–`003` claimed, `004`–`005` unclaimed. Org invite code
+`NORDPARK1`.
+
+### On a phone
+
+Both dev servers bind to your LAN, so `http://<your-ip>:5174/s/PARKPNG001`
+works from a phone on the same Wi-Fi — the QR codes on the owner's sticker page
+point there. `npm run demo` prints the address.
+
+The Expo app is a separate, optional surface:
 
 ```bash
 npm --prefix apps/mobile start
 ```
-
-Then press `i`, `a`, or scan the QR code with Expo Go. Set `extra.apiUrl` in
-`apps/mobile/app.json` to your machine's LAN address to use a physical device —
-`localhost` resolves to the phone itself.
 
 ---
 
@@ -61,10 +71,11 @@ Then press `i`, `a`, or scan the QR code with Expo Go. Set `extra.apiUrl` in
 
 | Path | What it is |
 | --- | --- |
-| `packages/shared` | Plate normalization, the incident vocabulary, request schemas, the analytics taxonomy |
-| `apps/api` | Node + TypeScript + PostgreSQL. Auth, routing, abuse controls, KPIs |
+| `packages/shared` | Plate and sticker normalization, the incident vocabulary, request schemas, the analytics taxonomy |
+| `apps/api` | Node + TypeScript + PostgreSQL. Auth, routing, abuse controls, KPIs, channels |
+| `apps/web` | **The reporter and owner surface. Zero install — this is the front door.** |
 | `apps/admin` | React console: network health, moderation queue, contested claims, organizations, audit log |
-| `apps/mobile` | Expo (React Native) app for both reporters and vehicle users |
+| `apps/mobile` | Expo (React Native) app — one channel among several for vehicle owners |
 | `docs/CONCEPT.md` | **Project document v0.2 — the source of truth for what we are building and why** |
 | `docs/DECISIONS.md` | Why the security-sensitive things are built the way they are, and the §14 open decisions |
 | `docs/API.md` | Endpoint reference |
@@ -135,7 +146,7 @@ Full reasoning, including the trade-offs accepted, is in
 npm test
 ```
 
-47 tests. The API suite is organised by the §13 acceptance criteria — each
+68 tests. The API suite is organised by the §13 acceptance criteria — each
 `describe` block names the criterion it covers, so a failure tells you which
 part of the MVP definition is broken. It also asserts the privacy invariants:
 identical responses for registered and unregistered plates, no plate recoverable

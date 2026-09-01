@@ -9,8 +9,10 @@ import { AuthService, ConsoleOtpDelivery, type OtpDeliveryChannel } from './serv
 import { MetricsService } from './services/metrics.js';
 import { OrganizationService } from './services/organizations.js';
 import { PushService, createPushProvider, type PushProvider } from './services/push/index.js';
+import { NotificationService, type ChannelTransport } from './services/channels/index.js';
 import { RateLimiter } from './services/rateLimit.js';
 import { RetentionService } from './services/retention.js';
+import { StickerService } from './services/stickers.js';
 import { VehicleService } from './services/vehicles.js';
 
 export interface AppContext {
@@ -21,8 +23,10 @@ export interface AppContext {
   rateLimiter: RateLimiter;
   auth: AuthService;
   vehicles: VehicleService;
+  stickers: StickerService;
   alerts: AlertService;
   push: PushService;
+  notifications: NotificationService;
   abuse: AbuseService;
   organizations: OrganizationService;
   metrics: MetricsService;
@@ -34,6 +38,8 @@ export interface ContextOverrides {
   /** Swapped in tests to capture codes, and in production for real SMS/email. */
   otpDelivery?: OtpDeliveryChannel;
   pushProvider?: PushProvider;
+  /** Swapped in tests to assert on WhatsApp/SMS without a network call. */
+  channelTransports?: ChannelTransport[];
 }
 
 /**
@@ -65,7 +71,25 @@ export function createContext(db: Db, config: Config, overrides: ContextOverride
     (vehicleId) => vehicles.labelForNotification(vehicleId),
   );
 
-  const alerts = new AlertService(db, config, vehicles, push, rateLimiter, analytics, audit);
+  const stickers = new StickerService(db, analytics, audit);
+  const notifications = new NotificationService(
+    db,
+    config,
+    analytics,
+    push,
+    overrides.channelTransports,
+  );
+
+  const alerts = new AlertService(
+    db,
+    config,
+    vehicles,
+    stickers,
+    notifications,
+    rateLimiter,
+    analytics,
+    audit,
+  );
   const abuse = new AbuseService(db, analytics, audit);
   const organizations = new OrganizationService(db, audit);
   const metrics = new MetricsService(db);
@@ -80,8 +104,10 @@ export function createContext(db: Db, config: Config, overrides: ContextOverride
     rateLimiter,
     auth,
     vehicles,
+    stickers,
     alerts,
     push,
+    notifications,
     abuse,
     organizations,
     metrics,

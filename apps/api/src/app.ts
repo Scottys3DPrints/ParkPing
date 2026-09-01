@@ -10,7 +10,9 @@ import { alertRoutes } from './routes/alerts.js';
 import { authRoutes } from './routes/auth.js';
 import { metaRoutes } from './routes/meta.js';
 import { organizationRoutes } from './routes/organizations.js';
+import { stickerRoutes } from './routes/stickers.js';
 import { vehicleRoutes } from './routes/vehicles.js';
+import { demoRoutes } from './routes/demo.js';
 
 export function createApp(ctx: AppContext): Express {
   const app = express();
@@ -42,10 +44,20 @@ export function createApp(ctx: AppContext): Express {
   app.use('/v1/meta', metaRoutes());
   app.use('/v1/auth', authRoutes());
   app.use('/v1/vehicles', vehicleRoutes());
+  app.use('/v1/stickers', stickerRoutes());
   app.use('/v1/alerts', alertRoutes());
   app.use('/v1/account', accountRoutes());
   app.use('/v1/organizations', organizationRoutes());
   app.use('/v1/admin', adminRoutes());
+
+  /*
+   * The demo outbox shows the messages a non-production transport produced, so
+   * the whole product can be walked through without a Meta business account.
+   * It exposes message bodies, so production must never mount it.
+   */
+  if (ctx.config.env !== 'production') {
+    app.use('/v1/demo', demoRoutes());
+  }
 
   app.use(notFoundHandler());
   app.use(errorHandler());

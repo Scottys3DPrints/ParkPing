@@ -77,7 +77,7 @@ export class AccountService {
   async export(user: UserRow): Promise<AccountExport> {
     const [vehicles, sent, received, organizations] = await Promise.all([
       this.vehicles.list(user.id),
-      this.alerts.listSent(user.id, 1000),
+      this.alerts.listSent({ kind: 'user', user }, 1000),
       this.alerts.listReceived(user.id, 1000),
       this.db
         .query<{ name: string; role: string; joined_at: Date | string }>(
@@ -154,16 +154,43 @@ export class AccountService {
         `UPDATE alerts
             SET target_user_id = NULL,
                 target_vehicle_id = NULL,
-                target_plate_index = $2,
+                target_sticker_id = NULL,
+                target_plate_index = CASE WHEN target_plate_index IS NULL THEN NULL ELSE $2 END,
                 plate_entered_encrypted = ''
           WHERE target_user_id = $1`,
         [userId, `erased:${randomBytes(16).toString('hex')}`],
       );
 
+      // Block lists in both directions: the ones this person created against
+      // senders, and the ones others created against them.
+      await tx.query(
+        `DELETE FROM blocks
+          WHERE blocked_key = $1
+             OR target_key IN (
+               SELECT 'vehicle:' || id FROM vehicles WHERE user_id = $2
+               UNION ALL
+               SELECT 'sticker:' || id FROM stickers WHERE claimed_by = $2
+             )`,
+        [`user:${userId}`, userId],
+      );
+
+      /*
+       * Stickers are physical objects that outlive the account, so they are
+       * released rather than destroyed — whoever holds the car can claim the
+       * sticker again. Every link to this person is cleared in the process.
+       */
+      await tx.query(
+        `UPDATE stickers
+            SET claimed_by = NULL, vehicle_id = NULL, label = NULL,
+                status = 'unclaimed', claimed_at = NULL, updated_at = now()
+          WHERE claimed_by = $1`,
+        [userId],
+      );
+
+      await tx.query('DELETE FROM notification_channels WHERE user_id = $1', [userId]);
       await tx.query('DELETE FROM vehicles WHERE user_id = $1', [userId]);
       await tx.query('DELETE FROM devices WHERE user_id = $1', [userId]);
       await tx.query('DELETE FROM refresh_tokens WHERE user_id = $1', [userId]);
-      await tx.query('DELETE FROM blocks WHERE blocked_user_id = $1', [userId]);
       await tx.query('DELETE FROM org_members WHERE user_id = $1', [userId]);
 
       await tx.query(

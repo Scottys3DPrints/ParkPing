@@ -1,6 +1,6 @@
 import type { NextFunction, Request, Response } from 'express';
 import type { AppContext } from '../context.js';
-import type { UserRow } from '../services/auth.js';
+import type { GuestRow, UserRow } from '../services/auth.js';
 import { hashIp } from '../domain/crypto.js';
 
 declare global {
@@ -11,6 +11,8 @@ declare global {
       /** Salted hash of the caller's IP. The raw address is never stored. */
       ipHash: string;
       user?: UserRow;
+      /** Set instead of `user` for an anonymous reporter on the sticker path. */
+      guest?: GuestRow;
     }
   }
 }

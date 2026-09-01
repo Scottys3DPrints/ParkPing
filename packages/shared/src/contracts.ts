@@ -57,14 +57,43 @@ export const addVehicleSchema = z.object({
   inviteCode: z.string().trim().min(4).max(32).nullish(),
 });
 
-export const submitAlertSchema = z.object({
-  plate: z.string().trim().min(1).max(24),
-  country: countrySchema,
-  category: z.enum(INCIDENT_CATEGORIES),
-  timeframe: z.enum(TIMEFRAME_REQUESTS).nullish(),
-  /** Must reference a location belonging to an org the reporter is a member of. */
-  locationId: z.string().uuid().nullish(),
-});
+/**
+ * An alert names its target one of two ways, never both.
+ *
+ * A sticker code may be sent by an anonymous guest, because a code cannot be
+ * guessed and you must be standing at the car to read it. A plate requires a
+ * verified account, because the plate space is enumerable and identity is the
+ * cost we impose for walking it (project document v0.2 §3.3).
+ */
+export const submitAlertSchema = z
+  .object({
+    stickerCode: z.string().trim().min(1).max(24).nullish(),
+    plate: z.string().trim().min(1).max(24).nullish(),
+    country: countrySchema.nullish(),
+    category: z.enum(INCIDENT_CATEGORIES),
+    timeframe: z.enum(TIMEFRAME_REQUESTS).nullish(),
+    /** Must reference a location belonging to an org the reporter is a member of. */
+    locationId: z.string().uuid().nullish(),
+  })
+  .superRefine((value, ctx) => {
+    const hasSticker = typeof value.stickerCode === 'string' && value.stickerCode !== '';
+    const hasPlate = typeof value.plate === 'string' && value.plate !== '';
+    if (hasSticker === hasPlate) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['stickerCode'],
+        message: 'Send either a sticker code or a plate, not both.',
+      });
+      return;
+    }
+    if (hasPlate && !value.country) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['country'],
+        message: 'A plate needs a country.',
+      });
+    }
+  });
 
 export const respondToAlertSchema = z.object({
   response: z.enum(RESPONSE_CODES),
@@ -111,6 +140,32 @@ export const createOrgInviteSchema = z.object({
   expiresInDays: z.number().int().min(1).max(365).nullish(),
 });
 
+export const claimStickerSchema = z.object({
+  code: z.string().trim().min(1).max(24),
+  label: z.string().trim().min(1).max(40).nullish(),
+});
+
+export const updateStickerSchema = z.object({
+  label: z.string().trim().min(1).max(40).nullish(),
+  status: z.enum(['active', 'disabled']).optional(),
+});
+
+export const issueStickerBatchSchema = z.object({
+  count: z.number().int().min(1).max(1000),
+  label: z.string().trim().min(1).max(40).nullish(),
+});
+
+/**
+ * Channels an owner can be reached on. `destination` is the address for that
+ * channel — a phone number for SMS and WhatsApp, a push token otherwise.
+ */
+export const addChannelSchema = z.object({
+  kind: z.enum(['whatsapp', 'sms', 'web_push', 'expo', 'email']),
+  destination: z.string().trim().min(4).max(2048),
+  /** Lower runs first. Ties break on creation order. */
+  priority: z.number().int().min(0).max(100).default(10),
+});
+
 export const resolveAbuseReportSchema = z.object({
   status: z.enum(['reviewing', 'actioned', 'dismissed']),
   /** Optional enforcement applied together with the resolution. */
@@ -126,3 +181,7 @@ export type RegisterDeviceInput = z.infer<typeof registerDeviceSchema>;
 export type ReportAbuseInput = z.infer<typeof reportAbuseSchema>;
 export type CreateOrganizationInput = z.infer<typeof createOrganizationSchema>;
 export type CreateOrgInviteInput = z.infer<typeof createOrgInviteSchema>;
+export type ClaimStickerInput = z.infer<typeof claimStickerSchema>;
+export type UpdateStickerInput = z.infer<typeof updateStickerSchema>;
+export type IssueStickerBatchInput = z.infer<typeof issueStickerBatchSchema>;
+export type AddChannelInput = z.infer<typeof addChannelSchema>;

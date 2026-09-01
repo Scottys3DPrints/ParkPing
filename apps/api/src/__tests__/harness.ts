@@ -5,8 +5,10 @@ import { loadConfig, type Config } from '../config.js';
 import { createContext, type AppContext } from '../context.js';
 import { createDb, type Db } from '../db/index.js';
 import { runMigrations } from '../db/migrate.js';
+import type { ChannelKind } from '@parkping/shared';
 import type { OtpDeliveryChannel } from '../services/auth.js';
 import type { PushMessage, PushProvider, PushSendResult } from '../services/push/index.js';
+import type { ChannelTransport, OutboundMessage, TransportResult } from '../services/channels/index.js';
 
 /** Captures one-time codes instead of sending them anywhere. */
 export class CapturingOtpDelivery implements OtpDeliveryChannel {
@@ -44,6 +46,28 @@ export class RecordingPushProvider implements PushProvider {
   }
 }
 
+/** Captures WhatsApp/SMS/email sends so tests can assert without a network call. */
+export class RecordingTransport implements ChannelTransport {
+  readonly configured = true;
+  readonly sent: Array<{ destination: string; message: OutboundMessage }> = [];
+  failNext = false;
+
+  constructor(readonly kind: ChannelKind) {}
+
+  async send(destination: string, message: OutboundMessage): Promise<TransportResult> {
+    if (this.failNext) {
+      this.failNext = false;
+      return { ok: false, error: 'simulated_failure' };
+    }
+    this.sent.push({ destination, message });
+    return { ok: true, preview: `${message.title}\n\n${message.body}` };
+  }
+
+  reset(): void {
+    this.sent.length = 0;
+  }
+}
+
 export interface TestHarness {
   app: Express;
   ctx: AppContext;
@@ -51,6 +75,8 @@ export interface TestHarness {
   config: Config;
   otp: CapturingOtpDelivery;
   push: RecordingPushProvider;
+  whatsapp: RecordingTransport;
+  sms: RecordingTransport;
   close: () => Promise<void>;
 }
 
@@ -61,10 +87,39 @@ export async function createHarness(): Promise<TestHarness> {
 
   const otp = new CapturingOtpDelivery();
   const push = new RecordingPushProvider();
-  const ctx = createContext(db, config, { otpDelivery: otp, pushProvider: push });
+  const whatsapp = new RecordingTransport('whatsapp');
+  const sms = new RecordingTransport('sms');
+
+  const ctx = createContext(db, config, {
+    otpDelivery: otp,
+    pushProvider: push,
+    channelTransports: [whatsapp, sms],
+  });
   const app = createApp(ctx);
 
-  return { app, ctx, db, config, otp, push, close: () => db.close() };
+  return { app, ctx, db, config, otp, push, whatsapp, sms, close: () => db.close() };
+}
+
+/** Starts an anonymous reporter session, as the web app does on first visit. */
+export async function startGuest(harness: TestHarness): Promise<{ id: string; auth: { Authorization: string } }> {
+  const response = await supertest(harness.app).post('/v1/auth/guest').expect(201);
+  return {
+    id: response.body.guest.id,
+    auth: { Authorization: `Bearer ${response.body.tokens.accessToken}` },
+  };
+}
+
+/** Issues stickers the way an organization batch would. */
+export async function issueSticker(harness: TestHarness, organizationId: string | null = null): Promise<string> {
+  const [sticker] = await harness.ctx.stickers.issueBatch({
+    count: 1,
+    organizationId,
+    label: null,
+    actorUserId: null,
+  });
+  if (!sticker) throw new Error('Failed to issue sticker');
+  // The DTO formats the code for printing; the API accepts either form.
+  return sticker.code;
 }
 
 export interface TestUser {

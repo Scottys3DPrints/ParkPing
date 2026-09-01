@@ -7,12 +7,12 @@
  * Safe to re-run: it clears the demo rows it owns before inserting.
  */
 import { randomUUID } from 'node:crypto';
-import { INCIDENT_CATEGORIES, RESPONSE_CODES, normalizePlate } from '@parkping/shared';
+import { INCIDENT_CATEGORIES, RESPONSE_CODES, normalizePlate, normalizeStickerCode } from '@parkping/shared';
 import { getConfig } from '../config.js';
 import { createContext } from '../context.js';
 import { createDb } from '../db/index.js';
 import { runMigrations } from '../db/migrate.js';
-import { encrypt, generateAlertReference, maskContact } from '../domain/crypto.js';
+import { blindIndex, encrypt, generateAlertReference, maskContact } from '../domain/crypto.js';
 import { logger } from '../logger.js';
 
 const DEMO_ORG_SLUG = 'nordpark-campus';
@@ -200,6 +200,74 @@ for (let day = 0; day < 30; day += 1) {
   }
 }
 
+/*
+ * Stickers are the primary entry point in v0.2, so the demo needs some that
+ * are claimed (scannable and reachable) and some that are not (so the
+ * "not set up yet" path can be shown). Codes are deterministic here purely so
+ * a walkthrough can be written down; real issuance is random.
+ */
+const DEMO_STICKERS = [
+  { code: 'PARKPNG001', owner: 2, label: 'Anna — Golf' },
+  { code: 'PARKPNG002', owner: 3, label: 'Ben — Transporter' },
+  { code: 'PARKPNG003', owner: 4, label: 'Clara — Kombi' },
+];
+
+/**
+ * Stored codes must survive normalization, or the sticker is unreachable: the
+ * lookup normalizes what the scanner typed, so a code containing O, I, L or U
+ * would fold to something that never matches the stored value. Asserting here
+ * makes that impossible to introduce by choosing a nice-looking demo code.
+ */
+function storableCode(code: string): string {
+  const normalized = normalizeStickerCode(code);
+  if (normalized !== code) {
+    throw new Error(
+      `Sticker code ${code} is not storable — it normalizes to ${normalized}. ` +
+        'Use only the Crockford alphabet (no O, I, L or U).',
+    );
+  }
+  return normalized;
+}
+
+for (const demo of DEMO_STICKERS) {
+  await db.query(
+    `INSERT INTO stickers (id, code, status, label, organization_id, claimed_by, claimed_at)
+     VALUES ($1, $2, 'active', $3, $4, $5, now())`,
+    [randomUUID(), storableCode(demo.code), demo.label, orgId, userIds[demo.owner]],
+  );
+}
+
+// Two unclaimed, so the "this sticker is not set up yet" path is demonstrable.
+for (const code of ['PARKPNG004', 'PARKPNG005']) {
+  await db.query(
+    `INSERT INTO stickers (id, code, status, organization_id) VALUES ($1, $2, 'unclaimed', $3)`,
+    [randomUUID(), storableCode(code), orgId],
+  );
+}
+
+/*
+ * Give the vehicle users a WhatsApp channel each. Without one the demo would
+ * only ever exercise push, which is exactly the assumption v0.2 set out to
+ * remove.
+ */
+for (const [index, demo] of DEMO_PLATES.entries()) {
+  const destination = `+49151000000${index + 1}`;
+  await db.query(
+    `INSERT INTO notification_channels
+       (id, user_id, kind, destination_encrypted, destination_hash, destination_masked, priority, verified_at)
+     VALUES ($1, $2, 'whatsapp', $3, $4, $5, 1, now())`,
+    [
+      randomUUID(),
+      userIds[demo.owner],
+      encrypt(config.secrets.plateEncryptionKey, destination),
+      // Same derivation NotificationService uses, so a duplicate would be
+      // detected exactly as it would for a channel added through the API.
+      blindIndex(config.secrets.handlePepper, 'channel:whatsapp', destination.toLowerCase()),
+      maskContact('phone', destination),
+    ],
+  );
+}
+
 logger.info('seed.done', {
   users: userIds.length,
   vehicles: vehicleIds.length,
@@ -217,6 +285,9 @@ console.log(
     `  Site operator  : ${DEMO_USERS[1]!.contact}`,
     `  Vehicle users  : ${DEMO_USERS.slice(2).map((u) => u.contact).join(', ')}`,
     '  Invite code    : NORDPARK1',
+    '',
+    '  Stickers (claimed)  : PARKPNG001, PARKPNG002, PARKPNG003',
+    '  Stickers (unclaimed): PARKPNG004, PARKPNG005',
     '',
     'Sign in with any of these addresses; the one-time code is printed by the API',
     'in development (look for the "otp.console_delivery" log line).',

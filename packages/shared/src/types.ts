@@ -62,15 +62,22 @@ export interface VehicleDto {
  */
 export type ReporterVisibleStatus = 'processed' | 'responded';
 
+/** Which door the alert came through. */
+export type AlertSource = 'sticker' | 'plate';
+
 export interface SentAlertDto {
   id: string;
   /** Short human-quotable reference for support, e.g. "PP-7Q2K4M". */
   reference: string;
+  source: AlertSource;
   category: IncidentCategory;
   timeframe: TimeframeRequest | null;
-  /** Plate as the reporter typed it, echoed back for their own records. */
-  plateEntered: string;
-  country: CountryCode;
+  /**
+   * What the reporter aimed at, echoed back for their own records: the plate
+   * they typed, or the sticker code they scanned.
+   */
+  target: string;
+  country: CountryCode | null;
   status: ReporterVisibleStatus;
   response: ResponseCode | null;
   respondedAt: string | null;
@@ -81,8 +88,13 @@ export interface SentAlertDto {
 export interface ReceivedAlertDto {
   id: string;
   reference: string;
-  vehicleId: string;
-  vehiclePlate: string;
+  source: AlertSource;
+  /** Set on the sticker path. */
+  stickerId: string | null;
+  /** Set on the plate path. */
+  vehicleId: string | null;
+  /** The owner's own label for whatever was alerted — plate or sticker name. */
+  targetLabel: string;
   category: IncidentCategory;
   timeframe: TimeframeRequest | null;
   /** Free-form only in the sense of being chosen from an org's location list. */
@@ -153,6 +165,18 @@ export interface MetricsDto {
   pilotActivationRate: number | null;
   retention30d: number | null;
   retention90d: number | null;
+}
+
+export type ChannelKind = 'whatsapp' | 'sms' | 'web_push' | 'expo' | 'email';
+
+export interface NotificationChannelDto {
+  id: string;
+  kind: ChannelKind;
+  /** Masked, e.g. "+49 ••• ••5678". The raw destination is never returned. */
+  destinationMasked: string;
+  priority: number;
+  verifiedAt: string | null;
+  createdAt: string;
 }
 
 export interface AbuseReportDto {

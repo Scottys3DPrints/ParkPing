@@ -613,7 +613,7 @@ describe('§13.6 — users can revoke consent, delete a vehicle and delete their
     expect(alerts.rows[0]!.plate_entered_encrypted).toBe('');
 
     const sent = await api(harness).get('/v1/alerts/sent').set(reporter.auth).expect(200);
-    expect(sent.body.alerts[0].plateEntered).toBe('—');
+    expect(sent.body.alerts[0].target).toBe('—');
   });
 
   it('requires an explicit confirmation to delete', async () => {

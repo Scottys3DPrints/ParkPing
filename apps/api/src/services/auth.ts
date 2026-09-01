@@ -21,7 +21,26 @@ import { POLICIES, type RateLimiter } from './rateLimit.js';
 
 export interface AccessTokenClaims {
   sub: string;
-  role: 'user' | 'platform_admin';
+  role: 'user' | 'platform_admin' | 'guest';
+}
+
+/**
+ * An anonymous reporter on the sticker path (project document v0.2 §3.3).
+ *
+ * Guests exist because requiring an account to report is the single largest
+ * tax we could place on the thinnest step of the funnel, and because on the
+ * sticker path it buys nothing: a code cannot be enumerated and you must be
+ * standing at the car to read one. They still carry a durable identity, so
+ * rate limits, block lists and moderation work on them exactly as on accounts.
+ *
+ * Guests can do precisely two things: send an alert to a sticker, and read
+ * their own sent alerts. Everything else requires a real account.
+ */
+export interface GuestRow {
+  id: string;
+  throttled_until: Date | string | null;
+  blocked_at: Date | string | null;
+  created_at: Date | string;
 }
 
 export interface TokenPair {
@@ -348,6 +367,48 @@ export class AuthService {
     ]);
   }
 
+  /**
+   * Issues a guest session. Long-lived on purpose: a reporter should not be
+   * asked to do anything at all a second time, and the token grants almost
+   * nothing.
+   */
+  async createGuestSession(ipHash: string): Promise<{ guestId: string; accessToken: string; expiresIn: number }> {
+    const guestId = randomUUID();
+    await this.db.query('INSERT INTO guests (id, last_seen_at) VALUES ($1, now())', [guestId]);
+
+    const expiresIn = 90 * 24 * 60 * 60;
+    const accessToken = jwt.sign({ sub: guestId, role: 'guest' } satisfies AccessTokenClaims, this.config.secrets.jwtSecret, {
+      algorithm: 'HS256',
+      expiresIn,
+      issuer: 'parkping',
+      audience: 'parkping-app',
+    });
+
+    await this.analytics.track(ANALYTICS_EVENTS.guest_session_started, null, {});
+    await this.audit.record({
+      actorType: 'system',
+      action: 'guest.session_created',
+      subjectType: 'guest',
+      subjectId: guestId,
+      ipHash,
+    });
+
+    return { guestId, accessToken, expiresIn };
+  }
+
+  async loadGuest(guestId: string): Promise<GuestRow | null> {
+    const { rows } = await this.db.query<GuestRow>(
+      'SELECT id, throttled_until, blocked_at, created_at FROM guests WHERE id = $1',
+      [guestId],
+    );
+    const guest = rows[0];
+    if (!guest) return null;
+    void this.db
+      .query('UPDATE guests SET last_seen_at = now() WHERE id = $1', [guestId])
+      .catch(() => undefined);
+    return guest;
+  }
+
   verifyAccessToken(token: string): AccessTokenClaims {
     try {
       const payload = jwt.verify(token, this.config.secrets.jwtSecret, {
@@ -356,7 +417,10 @@ export class AuthService {
         audience: 'parkping-app',
       });
       if (typeof payload === 'string' || !payload.sub) throw new Error('malformed');
-      return { sub: payload.sub, role: (payload as { role?: 'user' | 'platform_admin' }).role ?? 'user' };
+      return {
+        sub: payload.sub,
+        role: (payload as { role?: AccessTokenClaims['role'] }).role ?? 'user',
+      };
     } catch {
       throw unauthorized('Your session has expired. Sign in again.');
     }

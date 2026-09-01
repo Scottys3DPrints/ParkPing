@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { Router } from 'express';
 import { z } from 'zod';
 import {
+  addChannelSchema,
   localeSchema,
   notificationPreferencesSchema,
   registerDeviceSchema,
@@ -9,6 +10,7 @@ import {
 } from '@parkping/shared';
 import { asyncHandler, validateBody } from '../middleware/errors.js';
 import { requireAuth, touchLastSeen } from '../middleware/auth.js';
+import { badRequest } from '../errors.js';
 import { toUserDto } from '../services/auth.js';
 
 const deleteConfirmationSchema = z.object({
@@ -102,6 +104,34 @@ export function accountRoutes(): Router {
         'UPDATE devices SET active = false, updated_at = now() WHERE user_id = $1 AND installation_id = $2',
         [req.user!.id, req.params.installationId],
       );
+      res.status(204).end();
+    }),
+  );
+
+  // --- Notification channels ----------------------------------------------
+
+  router.get(
+    '/channels',
+    asyncHandler(async (req, res) => {
+      res.json({ channels: await req.ctx.notifications.list(req.user!.id) });
+    }),
+  );
+
+  router.post(
+    '/channels',
+    validateBody(addChannelSchema),
+    asyncHandler(async (req, res) => {
+      const channel = await req.ctx.notifications.add(req.user!.id, req.body);
+      res.status(201).json({ channel });
+    }),
+  );
+
+  router.delete(
+    '/channels/:channelId',
+    asyncHandler(async (req, res) => {
+      const parsed = z.string().uuid().safeParse(req.params.channelId);
+      if (!parsed.success) throw badRequest('invalid_id', 'That channel id is not valid.');
+      await req.ctx.notifications.remove(req.user!.id, parsed.data);
       res.status(204).end();
     }),
   );

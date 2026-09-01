@@ -25,6 +25,12 @@ export const ANALYTICS_EVENTS = {
   vehicle_removed: 'vehicle_removed',
   invite_redeemed: 'invite_redeemed',
 
+  // Sticker funnel -> KPI "pilot activation", "sticker delivery rate"
+  sticker_issued: 'sticker_issued',
+  sticker_scanned: 'sticker_scanned',
+  sticker_claimed: 'sticker_claimed',
+  guest_session_started: 'guest_session_started',
+
   // Reporting funnel -> KPI "local match rate"
   alert_compose_started: 'alert_compose_started',
   alert_submitted: 'alert_submitted',
