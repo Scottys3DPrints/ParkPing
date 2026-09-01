@@ -1,0 +1,24 @@
+{
+  "name": "parkping",
+  "private": true,
+  "version": "0.1.0",
+  "description": "ParkPing - the digital doorbell for cars. Privacy-oriented vehicle alerting.",
+  "workspaces": [
+    "packages/*",
+    "apps/api",
+    "apps/admin"
+  ],
+  "engines": {
+    "node": ">=20.11"
+  },
+  "scripts": {
+    "build": "npm run build -w @parkping/shared && npm run build -w @parkping/api && npm run build -w @parkping/admin",
+    "dev": "npm run dev -w @parkping/api",
+    "dev:admin": "npm run dev -w @parkping/admin",
+    "dev:mobile": "npm --prefix apps/mobile run start",
+    "migrate": "npm run migrate -w @parkping/api",
+    "seed": "npm run seed -w @parkping/api",
+    "test": "npm run test -w @parkping/shared && npm run test -w @parkping/api",
+    "typecheck": "npm run typecheck -w @parkping/shared && npm run typecheck -w @parkping/api && npm run typecheck -w @parkping/admin"
+  }
+}

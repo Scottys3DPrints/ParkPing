@@ -1,0 +1,212 @@
+import { StyleSheet } from 'react-native';
+
+export const theme = {
+  bg: '#0F1216',
+  surface: '#171B21',
+  surface2: '#1E242C',
+  border: '#2A323C',
+  text: '#E8ECF1',
+  textDim: '#98A4B3',
+  accent: '#4C9AFF',
+  ok: '#3ECF8E',
+  warn: '#F5A623',
+  danger: '#FF6B6B',
+  radius: 12,
+};
+
+export const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: theme.bg,
+  },
+  content: {
+    padding: 20,
+    paddingBottom: 40,
+    gap: 14,
+  },
+  h1: {
+    color: theme.text,
+    fontSize: 24,
+    fontWeight: '700',
+    letterSpacing: -0.4,
+  },
+  h2: {
+    color: theme.text,
+    fontSize: 17,
+    fontWeight: '600',
+  },
+  subtitle: {
+    color: theme.textDim,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  card: {
+    backgroundColor: theme.surface,
+    borderColor: theme.border,
+    borderWidth: 1,
+    borderRadius: theme.radius,
+    padding: 16,
+    gap: 8,
+  },
+  label: {
+    color: theme.textDim,
+    fontSize: 13,
+    marginBottom: 6,
+  },
+  input: {
+    backgroundColor: theme.surface2,
+    borderColor: theme.border,
+    borderWidth: 1,
+    borderRadius: 10,
+    color: theme.text,
+    fontSize: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  plateInput: {
+    fontSize: 22,
+    fontWeight: '700',
+    letterSpacing: 2,
+    textAlign: 'center',
+    textTransform: 'uppercase',
+    paddingVertical: 16,
+  },
+  button: {
+    backgroundColor: theme.accent,
+    borderRadius: 10,
+    paddingVertical: 15,
+    alignItems: 'center',
+  },
+  buttonText: {
+    color: '#08121F',
+    fontWeight: '700',
+    fontSize: 16,
+  },
+  buttonSecondary: {
+    backgroundColor: theme.surface2,
+    borderColor: theme.border,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: 13,
+    alignItems: 'center',
+  },
+  buttonSecondaryText: {
+    color: theme.text,
+    fontWeight: '600',
+    fontSize: 15,
+  },
+  buttonDisabled: {
+    opacity: 0.45,
+  },
+  chip: {
+    borderWidth: 1,
+    borderColor: theme.border,
+    backgroundColor: theme.surface2,
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+  },
+  chipActive: {
+    borderColor: theme.accent,
+    backgroundColor: 'rgba(76, 154, 255, 0.14)',
+  },
+  chipText: {
+    color: theme.textDim,
+    fontSize: 14,
+  },
+  chipTextActive: {
+    color: theme.text,
+    fontWeight: '600',
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  wrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  badge: {
+    borderWidth: 1,
+    borderColor: theme.border,
+    borderRadius: 999,
+    paddingHorizontal: 9,
+    paddingVertical: 3,
+  },
+  badgeText: {
+    color: theme.textDim,
+    fontSize: 12,
+  },
+  error: {
+    borderWidth: 1,
+    borderColor: '#5C2B2B',
+    backgroundColor: '#241618',
+    borderRadius: 10,
+    padding: 12,
+  },
+  errorText: {
+    color: '#FFC7C7',
+    fontSize: 14,
+  },
+  notice: {
+    borderWidth: 1,
+    borderColor: '#23503C',
+    backgroundColor: '#132520',
+    borderRadius: 10,
+    padding: 12,
+  },
+  noticeText: {
+    color: theme.ok,
+    fontSize: 14,
+  },
+  mono: {
+    color: theme.textDim,
+    fontSize: 13,
+    fontVariant: ['tabular-nums'],
+  },
+  empty: {
+    color: theme.textDim,
+    textAlign: 'center',
+    paddingVertical: 36,
+    fontSize: 15,
+  },
+  tabBar: {
+    flexDirection: 'row',
+    borderTopWidth: 1,
+    borderTopColor: theme.border,
+    backgroundColor: theme.surface,
+  },
+  tab: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 12,
+    gap: 3,
+  },
+  tabLabel: {
+    fontSize: 11.5,
+    color: theme.textDim,
+  },
+  tabLabelActive: {
+    color: theme.accent,
+    fontWeight: '600',
+  },
+  tabDot: {
+    position: 'absolute',
+    top: 6,
+    right: '28%',
+    minWidth: 17,
+    height: 17,
+    borderRadius: 9,
+    backgroundColor: theme.danger,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  tabDotText: {
+    color: '#fff',
+    fontSize: 10.5,
+    fontWeight: '700',
+  },
+});

@@ -1,0 +1,13 @@
+node_modules/
+dist/
+build/
+.expo/
+.env
+.env.local
+*.log
+.pgdata/
+# Auto-generated development secrets. Never commit; never reuse in production.
+.parkping-dev-secrets.json
+coverage/
+.DS_Store
+Thumbs.db

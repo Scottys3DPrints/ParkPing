@@ -1,0 +1,55 @@
+{
+  "expo": {
+    "name": "ParkPing",
+    "slug": "parkping",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "parkping",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": true,
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#0F1216"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.parkping.app",
+      "infoPlist": {
+        "UIBackgroundModes": [
+          "remote-notification"
+        ]
+      }
+    },
+    "android": {
+      "package": "com.parkping.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#0F1216"
+      },
+      "permissions": [
+        "POST_NOTIFICATIONS"
+      ]
+    },
+    "plugins": [
+      [
+        "expo-notifications",
+        {
+          "color": "#4C9AFF"
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
+      ],
+      "expo-asset",
+      "./plugins/withReleaseSigning"
+    ],
+    "extra": {
+      "//": "LAN address of the machine running the API. 'localhost' would mean the phone itself. Override at build time with EXPO_PUBLIC_API_URL.",
+      "apiUrl": "http://192.168.178.26:4000"
+    }
+  }
+}

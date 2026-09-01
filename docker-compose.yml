@@ -1,0 +1,31 @@
+# Optional: a real PostgreSQL for development.
+#
+# You do not need this to run ParkPing. With no DATABASE_URL set, the API runs
+# against an embedded PostgreSQL (PGlite) and `npm run dev` works immediately.
+# Use this when you want to exercise the same engine and connection handling as
+# production, or to test a migration against a server you can inspect with psql.
+#
+#   docker compose up -d
+#   DATABASE_URL=postgresql://parkping:parkping@localhost:5432/parkping npm run dev
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: parkping-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: parkping
+      POSTGRES_PASSWORD: parkping
+      POSTGRES_DB: parkping
+    ports:
+      - '5432:5432'
+    volumes:
+      - parkping-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U parkping -d parkping']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  parkping-pgdata:

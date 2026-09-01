@@ -1,0 +1,147 @@
+name: Build APK
+
+# ParkPing is not distributed through a store, so this workflow is the distribution
+# channel — the same arrangement as Bastion. Every push to a build branch produces an
+# installable APK as a downloadable artifact; every tag also publishes a Release, which
+# is the link you open on the phone.
+#
+# One thing differs from Bastion, and it matters: Bastion runs entirely on the device,
+# so its APK works anywhere. ParkPing is a client — it is inert without an API to talk
+# to. The URL is baked in at build time from the API_URL repository variable. Set it to
+# a hosted, HTTPS API before handing the link to anyone who is not on your Wi-Fi.
+
+on:
+  push:
+    branches:
+      - main
+      - 'claude/**'
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  tests:
+    name: Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+
+      # The acceptance suite is organised by the §13 criteria from the project
+      # document, plus the privacy invariants: identical responses for registered
+      # and unregistered plates, no plate recoverable from a database dump, and no
+      # endpoint anywhere that resolves a plate to an account. If one of these
+      # fails, the build has broken a promise the product is built on.
+      - run: npm test
+
+      - name: Typecheck
+        run: npm run typecheck
+
+  apk:
+    name: Build installable APK
+    runs-on: ubuntu-latest
+    needs: tests
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v3
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Install dependencies
+        working-directory: apps/mobile
+        run: npm ci
+
+      # Generates the native android/ project from app.json. It is not committed,
+      # so the build always reflects the current config rather than a stale copy.
+      - name: Generate native project
+        working-directory: apps/mobile
+        env:
+          # Falls back to the LAN address in app.json, which only works at home.
+          EXPO_PUBLIC_API_URL: ${{ vars.API_URL }}
+        run: npx expo prebuild --platform android --no-install
+
+      # Signing is optional so the build never hard-fails, but it is the difference
+      # between an APK that can update an installed one and a dead end. Without the
+      # secret, Gradle falls back to the debug key, which every runner generates
+      # afresh — two such builds cannot update each other, and Android will refuse
+      # to install one over the other.
+      - name: Restore signing key
+        id: signing
+        env:
+          KEYSTORE_BASE64: ${{ secrets.PARKPING_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/parkping.jks"
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::No signing key configured; falling back to the debug key. This APK cannot update a previous install."
+          fi
+
+      - name: Build release APK
+        working-directory: apps/mobile/android
+        env:
+          PARKPING_KEYSTORE: ${{ steps.signing.outputs.available == 'true' && format('{0}/parkping.jks', runner.temp) || '' }}
+          PARKPING_KEYSTORE_PASSWORD: ${{ secrets.PARKPING_KEYSTORE_PASSWORD }}
+          PARKPING_KEY_ALIAS: ${{ secrets.PARKPING_KEY_ALIAS }}
+          PARKPING_KEY_PASSWORD: ${{ secrets.PARKPING_KEY_PASSWORD }}
+        run: ./gradlew assembleRelease --no-daemon
+
+      - name: Name the APK
+        id: apk
+        run: |
+          SRC=$(find apps/mobile/android/app/build/outputs/apk/release -name '*.apk' | head -1)
+          VERSION="${GITHUB_REF_NAME#v}"
+          if [ "$GITHUB_REF_TYPE" != "tag" ]; then
+            VERSION="$(node -p "require('./apps/mobile/package.json').version")-${GITHUB_SHA::7}"
+          fi
+          DEST="parkping-${VERSION}.apk"
+          cp "$SRC" "$DEST"
+          echo "path=$DEST" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: parkping-apk
+          path: ${{ steps.apk.outputs.path }}
+          if-no-files-found: error
+
+      - name: Publish release
+        if: github.ref_type == 'tag'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ steps.apk.outputs.path }}
+          generate_release_notes: true
+          body: |
+            ## ParkPing ${{ steps.apk.outputs.version }}
+
+            Download the `.apk` below and open it on your phone. You will need to
+            allow installing from unknown sources.
+
+            **This build talks to:** `${{ vars.API_URL || 'the LAN address in app.json — home Wi-Fi only' }}`
+
+            ParkPing is a client. It needs a reachable API to do anything; a build
+            pointed at a LAN address will not work away from that network.
