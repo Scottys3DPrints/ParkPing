@@ -65,6 +65,7 @@ Then press `i`, `a`, or scan the QR code with Expo Go. Set `extra.apiUrl` in
 | `apps/api` | Node + TypeScript + PostgreSQL. Auth, routing, abuse controls, KPIs |
 | `apps/admin` | React console: network health, moderation queue, contested claims, organizations, audit log |
 | `apps/mobile` | Expo (React Native) app for both reporters and vehicle users |
+| `docs/CONCEPT.md` | **Project document v0.2 — the source of truth for what we are building and why** |
 | `docs/DECISIONS.md` | Why the security-sensitive things are built the way they are, and the §14 open decisions |
 | `docs/API.md` | Endpoint reference |
 | `docs/ANALYTICS.md` | Event taxonomy and how each §11 KPI is derived |
