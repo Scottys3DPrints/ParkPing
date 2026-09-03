@@ -31,6 +31,22 @@ const DEMO_PLATES: Array<{ plate: string; owner: number; label: string }> = [
   { plate: 'HH XY 42', owner: 4, label: 'Clara — Kombi' },
 ];
 
+/**
+ * Stickers are the primary entry point in v0.2, so the demo needs some that are
+ * claimed (scannable and reachable) and some that are not, so the "not set up
+ * yet" path can be shown. Codes are fixed here purely so a walkthrough can be
+ * written down; real issuance is random.
+ */
+const DEMO_STICKERS = [
+  { code: 'PARKPNG001', owner: 2, label: 'Anna — Golf' },
+  { code: 'PARKPNG002', owner: 3, label: 'Ben — Transporter' },
+  { code: 'PARKPNG003', owner: 4, label: 'Clara — Kombi' },
+];
+
+const UNCLAIMED_STICKERS = ['PARKPNG004', 'PARKPNG005'];
+
+const ALL_DEMO_STICKER_CODES = [...DEMO_STICKERS.map((s) => s.code), ...UNCLAIMED_STICKERS];
+
 const config = getConfig();
 const db = await createDb(config);
 await runMigrations(db);
@@ -45,6 +61,13 @@ await db.query(`DELETE FROM users WHERE contact_hash = ANY($1::text[])`, [
   DEMO_USERS.map((u) => contactHash(u.channel, u.contact)),
 ]);
 await db.query('DELETE FROM organizations WHERE slug = $1', [DEMO_ORG_SLUG]);
+/*
+ * Stickers survive both deletions above — their user and organization
+ * references are ON DELETE SET NULL, because a sticker is a physical object
+ * that outlives the account that claimed it. That is right in production and
+ * wrong for a re-runnable seed, so the demo codes are cleared explicitly.
+ */
+await db.query('DELETE FROM stickers WHERE code = ANY($1::text[])', [ALL_DEMO_STICKER_CODES]);
 
 const userIds: string[] = [];
 for (const demo of DEMO_USERS) {
@@ -200,18 +223,6 @@ for (let day = 0; day < 30; day += 1) {
   }
 }
 
-/*
- * Stickers are the primary entry point in v0.2, so the demo needs some that
- * are claimed (scannable and reachable) and some that are not (so the
- * "not set up yet" path can be shown). Codes are deterministic here purely so
- * a walkthrough can be written down; real issuance is random.
- */
-const DEMO_STICKERS = [
-  { code: 'PARKPNG001', owner: 2, label: 'Anna — Golf' },
-  { code: 'PARKPNG002', owner: 3, label: 'Ben — Transporter' },
-  { code: 'PARKPNG003', owner: 4, label: 'Clara — Kombi' },
-];
-
 /**
  * Stored codes must survive normalization, or the sticker is unreachable: the
  * lookup normalizes what the scanner typed, so a code containing O, I, L or U
@@ -238,7 +249,7 @@ for (const demo of DEMO_STICKERS) {
 }
 
 // Two unclaimed, so the "this sticker is not set up yet" path is demonstrable.
-for (const code of ['PARKPNG004', 'PARKPNG005']) {
+for (const code of UNCLAIMED_STICKERS) {
   await db.query(
     `INSERT INTO stickers (id, code, status, organization_id) VALUES ($1, $2, 'unclaimed', $3)`,
     [randomUUID(), storableCode(code), orgId],
